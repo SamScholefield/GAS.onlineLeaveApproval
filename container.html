@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="en-GB">
+
+<?!= include('css'); ?>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+<div id="container">
+  <div id="loading"><img style="display:block" src="https://drive.google.com/uc?export=view&id=0B5muPtWv8w2OM0x1d3I3YmtHdzg"></div>
+</div>
+
+<script> 
+  
+  $(document).ready(function(){
+    console.log("document loaded");
+    google.script.run.withSuccessHandler(name).getLoggedInUser();   
+  });
+  
+  function name(user){
+   var name = google.script.run.withSuccessHandler(build).getLoggedInUserName(user);
+  }
+  
+  function build(user){
+    approverMain(user);
+    createRequestTable();
+  };  
+  
+</script>
+
+<?!= include('js'); ?>

@@ -1,0 +1,278 @@
+<script>
+
+var reason = {
+                a: 'a. One\'s own wedding',
+                b: 'b. Participation in the wedding of children, siblings or parents',
+                c: 'c. The death of a spouse, child or parent',
+                d: 'd. The death of a sibling or parent-in-law',
+                e: 'e. The birth of a child, to wife or life companion',
+                f: 'f. Participation at the burial of a spouse, life companion, parent, child, parent-in-law, sibling or grandparent',
+                g: 'g. Terminal illness or medical emergency for an immediate family member (spouse, life companion, parent, child, sibling)',
+                h: 'h. Moving to a new house',
+                i: 'i. Summons by a court of law or other official body',
+                j: 'j. Medical treatment',
+                k: 'k. Providing care',
+                l: 'l. Child beginning school for the first time',
+                m: 'm. Before call up for military service or Zivildienst',
+                n: 'n. Personal business for which absence is absolutely unavoidable'
+              }
+
+function approverMain(user){
+  $('#container').empty();
+  $('<div/>').attr({id:'page_header'}).appendTo('#container');
+  $('<h1/>').text('Online Leave Request System - Approvals').appendTo('#page_header');
+  $('<p/>').text('You are logged in as: ').attr({id: 'logtext'}).appendTo('#page_header');
+  $('<label/>').text(user[1]).attr({id: 'user_text'}).appendTo('#logtext');
+  $('<label/>').text(user[0]).attr({id: 'user_label'}).appendTo('#logtext');
+  
+  $('<div/>').attr({id: 'requests'}).appendTo('#container');
+  $('<h1/>').text('Leave requests requiring action').appendTo('#requests');
+  $('<div/>').attr({id: 'request_table'}).appendTo('#requests');
+  
+  var element = document.getElementById('page_header');
+
+  element.scrollIntoView();
+  console.log('page created and handlers assigned');
+  
+};
+
+function createRequestTable(){
+ 
+   google.script.run.withSuccessHandler(buildRequestTable).getActiveObjects();
+ 
+};
+
+function buildRequestTable(dataObjects){
+  
+  var records = 0;
+  
+  var user = $('#user_label').text();
+  
+  var str = '<table><thead><tr><th>Name</th><th>Start</th><th>End</th><th>Submitted</th><th>Reason</th><th style="text-align:center">Status</th><th style="text-align:center">Action</th></tr></thead><tbody>';
+  
+  for(var i = 0; i < dataObjects[0].length; i++){
+    if(dataObjects[0][i].withapprover == user && (dataObjects[0][i].approvallevel == 1 || dataObjects[0][i].approvallevel == 2)){    
+      str = str + '<tr>';
+      str = str + '<td>' + dataObjects[0][i].username + '</td>';
+       str = str + '<td>' + shortDate(dataObjects[0][i].startdate) + " at " + shortTime(dataObjects[0][i].starttime) + '</td>';
+      //str = str + '<td>' + (dataObjects[i].startdate.split("00:"))[0] + " at " + (dataObjects[i].starttime.split(" "))[4] + '</td>';
+      str = str + '<td>' + shortDate(dataObjects[0][i].enddate) + " at " + shortTime(dataObjects[0][i].endtime) + '</td>';
+      //str = str + '<td>' + (dataObjects[i].enddate.split("00:"))[0] + " at " + (dataObjects[i].endtime.split(" "))[4] + '</td>';
+      str = str + '<td>' + shortDate(dataObjects[0][i].submitted) + " at " + shortTime(dataObjects[0][i].submitted) + '</td>';
+      str = str + '<td>' + reason[dataObjects[0][i].option] + '</td>';
+      str = str + '<td style="text-align:center">' + dataObjects[0][i].status + '</td>';
+      str = str + '<td style="text-align:center"><input type="button" id="' + dataObjects[0][i].requestid + '" class="action open" value="Open"></input></td>';
+      str = str + '</tr>';
+      records++;      
+    }
+  }    
+    
+  str = str + '</tbody></table>';
+  if(records == 0){str = '> There are no leave requests requiring action at this time';};  
+  $('#request_table').html(str);
+  $("tbody tr:odd").addClass("odd");
+  $('.open').click(function(){
+    displayRecord(this.id, user);
+  });  
+  
+  }
+  
+  function displayRecord(id, user){
+    console.log(id);
+    console.log(user);
+    google.script.run.withSuccessHandler(buildRecord).getActiveObjects(id);
+    
+    function buildRecord(dataObjects){
+      for(var i = 0; i < dataObjects[0].length; i++){
+        if(dataObjects[0][i].requestid == dataObjects[1]){
+          var requester = dataObjects[0][i].userid;
+          if(dataObjects[0][i].option == 'n'){var optionText = dataObjects[0][i].mantext || 'No text supplied';}else{var optionText = dataObjects[0][i].opttext || 'No text supplied';};
+          
+          $('#container').empty();
+          $('<div/>').attr({id:'page_header'}).appendTo('#container');
+          $('<h1/>').text('Leave Request for: ' + dataObjects[0][i].username).appendTo('#page_header');
+          $('<div/>').attr({id:'record_table'}).appendTo('#container');
+          
+          var str = '<table><tbody>';
+          
+          str = str + '<tr><td class="descriptor">Leave start</td><td>' + shortDate(dataObjects[0][i].startdate) + " at " + shortTime(dataObjects[0][i].starttime) + '</td></tr>';
+          str = str + '<tr><td class="descriptor">Leave end</td><td>' + shortDate(dataObjects[0][i].enddate) + " at " + shortTime(dataObjects[0][i].endtime) + '</td></tr>';
+          str = str + '<tr><td class="descriptor">Leave reason</td><td>' + reason[dataObjects[0][i].option] + '</td></tr>';
+          str = str + '<tr><td class="descriptor">Supporting text</td><td>' + optionText + '</td></tr>';
+          
+          if(dataObjects[0][i].requesttype == 'primary'){
+            var subtext = dataObjects[0][i].subtext || 'No text supplied';
+            var inttext = dataObjects[0][i].inttext || 'No text supplied';
+            str = str + '<tr><td class="descriptor">Substitute required</td><td>' + dataObjects[0][i].subreq + '</td></tr>';
+            str = str + '<tr><td class="descriptor">Substitute tasks and duties</td><td>' + subtext + '</td></tr>';
+            str = str + '<tr><td class="descriptor">Internal/self release detail</td><td>' + inttext + '</td></tr>';
+          };
+          
+          var approver1Comment = dataObjects[0][i].approver1comment || 'No comment provided';
+          
+          if(dataObjects[0][i].approvallevel == 2){
+            str = str + '<tr><td class="descriptor">Section head comment</td><td>' + approver1Comment + '</td></tr>';          
+          };
+          
+          str = str + '</tbody></table>';
+          
+          $('#record_table').html(str);
+          google.script.run.withSuccessHandler(buildUserTable).getActiveObjects(dataObjects[1]);
+          
+          break;
+          
+        };    
+      };
+
+      $('<div/>').attr({id: 'form_container'}).appendTo('#container');
+      $('<form/>').attr({id: 'section_form', name: 'section_form'}).appendTo('#form_container');
+      $('<h1/>').text('Your decision').appendTo('#section_form');
+      
+      $('<p/>').attr({id: 'paidpara'}).appendTo('#section_form');
+      
+      if(dataObjects[0][i].paid == 0){
+        $('<input/>').attr({type: 'checkbox', id: 'paid_check', name: 'paid_check'}).appendTo('#paidpara');
+      }else{
+        $('<input/>').attr({type: 'checkbox', id: 'paid_check', name: 'paid_check', checked:'checked'}).appendTo('#paidpara');
+      }
+
+      $('<label/>').text('Paid leave?').appendTo('#paidpara');
+      
+      $('<p/>').attr({id: 'commentpara'}).appendTo('#section_form');
+      $('<label/>').attr({for: '#section_comment', id: 'comment_label', class: 'textboxlabel'}).text('Comment:').appendTo('#commentpara');
+      $('<textarea/>').attr({id: 'section_comment', name: 'section_comment'}).appendTo('#commentpara');
+      
+      $('<div/>').attr({id: 'section_buttons'}).appendTo('#section_form');
+      $('<input/>').attr({type: 'button', id: 'form_approve', class: 'action', value: 'APPROVE'}).appendTo('#section_buttons');
+      $('<input/>').attr({type: 'button', id: 'form_decline', class: 'create', value: 'DECLINE'}).appendTo('#section_buttons');
+      $('<input/>').attr({type: 'button', id: 'form_cancel', value: 'Back'}).appendTo('#section_buttons');
+      
+      $('<input/>').attr({id: 'request_id', name: 'request_id', value: dataObjects[0][i].requestid}).appendTo('#section_form');
+      $('<input/>').attr({id: 'approval_level', name: 'approval_level', value: dataObjects[0][i].approvallevel}).appendTo('#section_form');
+      $('<input/>').attr({id: 'request_type', name: 'request_type', value: dataObjects[0][i].requesttype}).appendTo('#section_form');
+      $('<input/>').attr({id: 'approver', name: 'approver', value: dataObjects[0][i].withapprover}).appendTo('#section_form');
+      $('<input/>').attr({id: 'decision', name: 'decision', value: ''}).appendTo('#section_form');
+      
+      $('<div/>').attr({id: 'error_console'}).appendTo('#container');
+      $('<div/>').attr({id: 'user_table'}).appendTo('#container');
+      
+      $("#form_approve").click(function(){
+        $('#decision').val('approved');
+        validateApproval(this.parentNode.parentNode, this.id);
+      });
+      
+      $("#form_decline").click(function(){
+      $('#decision').val('declined');
+        validateApproval(this.parentNode.parentNode, this.id)
+      });      
+      
+      $("#form_cancel").click(function(){
+        reload(user[0]);
+      });      
+      
+    };
+  }
+  
+  function buildUserTable(dataObjects){
+  
+  var recordCount = 0;
+  
+  for(var h = 0; h < dataObjects[0].length; h++){
+    if(dataObjects[0][h].requestid == dataObjects[1]){
+      var requester = dataObjects[0][h].userid;
+      }
+  }
+  
+  var str = '<table><thead><tr><th>Start</th><th>End</th><th>Submitted on</th><th>Reason</th><th style="text-align:center">Status</th></tr></thead><tbody>';
+  
+  for(var i = 0; i < dataObjects[0].length; i++){
+    if(dataObjects[0][i].userid == requester){    
+      str = str + '<tr>';
+      str = str + '<td>' + shortDate(dataObjects[0][i].startdate) + " at " + shortTime(dataObjects[0][i].starttime) + '</td>';
+      str = str + '<td>' + shortDate(dataObjects[0][i].enddate) + " at " + shortTime(dataObjects[0][i].endtime) + '</td>';
+      str = str + '<td>' + shortDate(dataObjects[0][i].submitted) + " at " + shortTime(dataObjects[0][i].submitted) + '</td>';
+      str = str + '<td>' + reason[dataObjects[0][i].option] + '</td>';
+      str = str + '<td style="text-align:center">' + dataObjects[0][i].status +'</td>';
+      str = str + '</tr>';
+      recordCount++;      
+    }
+  }    
+    
+  str = str + '</tbody></table>';
+ 
+  if(recordCount == 0){str = '> This user has no archived leave requests at this time'};
+    
+  $('#user_table').html(str);
+  $("tbody tr:odd").addClass("odd");
+  
+  }
+  
+  function validateApproval(form, id){
+  
+    $('#error_console').empty();
+    $('.input_error').attr('style', '');
+    
+    var errorCount = 0;
+    
+    //UNPAID LEAVE COMMENT
+    if($('input[name="paid_check"]:checked').val() === undefined && ($('#section_comment').val() == '' || undefined)){
+      console.log('unpaid comment invalid');
+      $('#error_console').append('<p>You must leave a comment for unpaid leave</p>');
+      $('#section_comment').addClass('input_error');
+      errorCount++
+    }
+    
+    //DECLINE COMMENT
+    if(id == 'form_decline' && ($('#section_comment').val() == '' || undefined)){
+      console.log('decline comment invalid');
+      $('#error_console').append('<p>You must leave a comment when declining leave</p>');
+      $('#section_comment').addClass('input_error');
+      errorCount++
+    }
+    
+    if(errorCount > 0){
+      ////Highlight errors
+      $('.input_error').attr('style', "border:#D50F25 1px solid;");
+      return;
+    }else{
+      console.log('processing form');
+      google.script.run.withSuccessHandler(reload).processForm(form);
+    }
+  
+  }  
+
+  function reload(user){
+  
+    $('#container').empty();
+    google.script.run.withSuccessHandler(name).getLoggedInUser();
+    
+  }
+  
+  function shortDate(dateString){
+    
+ var d = new Date(dateString);
+ var dayArray = ['Sun', 'Mon','Tue','Wed','Thu','Fri','Sat'];
+ var monthArray = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+ var curr_day = d.getDay();
+ var curr_date = d.getDate();
+ var curr_month = d.getMonth();
+ var curr_year = d.getFullYear();  
+ var shortDate = dayArray[curr_day] + " " + monthArray[curr_month] + " " + pad(curr_date) + " " + curr_year;
+
+ return shortDate;
+    
+}
+
+function shortTime(time) {
+    var d = new Date(time);
+    var h = pad(d.getHours());
+    var m = pad(d.getMinutes());
+    return h + ":" + m;
+}
+
+function pad(n){
+  var pad = "";  
+  if(n < 10){pad = "0" + n}else{pad = n};  
+  return pad;
+}
+</script>
